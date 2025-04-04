@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/auth";
-import { Edit, Plus, Search, UserPlus } from "lucide-react";
+import { Edit, Plus, Search, UserPlus, Wallet } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import UserForm from "./UserForm";
+import WalletAdjustmentForm from "@/components/transactions/WalletAdjustmentForm";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ export default function UsersList({ subadminId, isAdmin = false }: UsersListProp
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
   
@@ -96,28 +98,33 @@ export default function UsersList({ subadminId, isAdmin = false }: UsersListProp
     }
   };
   
-  const getUserRoleBadgeColor = (role: UserRole) => {
+  const getUserRoleBadgeColor = (role: string) => {
     switch (role) {
-      case UserRole.ADMIN:
+      case "admin":
         return "bg-purple-600 text-white";
-      case UserRole.SUBADMIN:
+      case "subadmin":
         return "bg-blue-600 text-white";
-      case UserRole.PLAYER:
+      case "player":
         return "bg-green-600 text-white";
       default:
         return "bg-gray-600 text-white";
     }
   };
   
-  const getUserStatusBadgeColor = (status: UserStatus) => {
+  const getUserStatusBadgeColor = (status: string) => {
     switch (status) {
-      case UserStatus.ACTIVE:
+      case "active":
         return "bg-green-500 text-white";
-      case UserStatus.BLOCKED:
+      case "blocked":
         return "bg-red-500 text-white";
       default:
         return "bg-gray-500 text-white";
     }
+  };
+  
+  const handleWalletAdjustment = (user: User) => {
+    setSelectedUser(user);
+    setShowWalletDialog(true);
   };
   
   if (isLoading) {
@@ -227,19 +234,30 @@ export default function UsersList({ subadminId, isAdmin = false }: UsersListProp
                           <DropdownMenuItem onClick={() => handleEditUser(user)}>
                             Edit User
                           </DropdownMenuItem>
-                          {user.status === UserStatus.ACTIVE ? (
+                          {user.status === "active" ? (
                             <DropdownMenuItem 
                               className="text-red-500"
-                              onClick={() => handleStatusChange(user, UserStatus.BLOCKED)}
+                              onClick={() => handleStatusChange(user, "blocked")}
                             >
                               Block User
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem 
                               className="text-green-500"
-                              onClick={() => handleStatusChange(user, UserStatus.ACTIVE)}
+                              onClick={() => handleStatusChange(user, "active")}
                             >
                               Unblock User
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {/* Only show wallet adjustment for players to admins and subadmins */}
+                          {(isAdmin || (user.subadminId === (subadminId || -1))) && user.role === "player" && (
+                            <DropdownMenuItem 
+                              onClick={() => handleWalletAdjustment(user)}
+                              className="text-amber"
+                            >
+                              <Wallet className="mr-2 h-4 w-4" />
+                              Adjust Wallet
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -274,6 +292,24 @@ export default function UsersList({ subadminId, isAdmin = false }: UsersListProp
               isAdmin={isAdmin}
               subadminId={subadminId}
               onSuccess={() => setShowEditDialog(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Wallet Adjustment Dialog */}
+      <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Adjust Wallet Balance</DialogTitle>
+            <DialogDescription>
+              Add or deduct funds from the user's wallet.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <WalletAdjustmentForm 
+              user={selectedUser}
+              onSuccess={() => setShowWalletDialog(false)}
             />
           )}
         </DialogContent>
