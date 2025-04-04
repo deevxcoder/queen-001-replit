@@ -975,8 +975,7 @@ export class DatabaseStorage implements IStorage {
     
     for (const bet of bets) {
       // Check if winner (selected team A or B)
-      const isWinner = (bet.selection === "A" && winningTeam === optionGame.teamA) || 
-                       (bet.selection === "B" && winningTeam === optionGame.teamB);
+      const isWinner = bet.selection === winningTeam;
       
       // Update bet status
       const status = isWinner ? "won" : "lost";
@@ -1000,7 +999,7 @@ export class DatabaseStorage implements IStorage {
           amount: bet.potentialWinning,
           status: "approved",
           reference: `Winning from option game bet on ${optionGame.title}`,
-          remarks: `Bet: ${bet.selection === "A" ? optionGame.teamA : optionGame.teamB}, Winner: ${winningTeam}`,
+          remarks: `Bet: Team ${bet.selection}, Winner: Team ${winningTeam}`,
           approvedById: null,
           isSubadminTransaction: false
         });
