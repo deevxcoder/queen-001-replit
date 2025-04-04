@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --amber: 35 100% 50%;
+  --amber-foreground: 0 0% 9%;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -9,5 +14,29 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  .text-amber {
+    color: hsl(var(--amber));
+  }
+  
+  .bg-amber {
+    background-color: hsl(var(--amber));
+  }
+  
+  .border-amber {
+    border-color: hsl(var(--amber));
+  }
+  
+  .hover\:text-amber:hover {
+    color: hsl(var(--amber));
+  }
+  
+  .hover\:bg-amber:hover {
+    background-color: hsl(var(--amber));
+  }
+  
+  .hover\:border-amber:hover {
+    border-color: hsl(var(--amber));
   }
 }
