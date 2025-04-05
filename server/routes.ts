@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import session from "express-session";
 import passport from "passport";
@@ -259,6 +260,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedUser = await storage.updateUser(userId, {
         walletBalance: user.walletBalance + amount
       });
+      
+      // Send real-time notification to the user
+      if (updatedUser) {
+        sendNotification(userId, {
+          type: 'wallet_update',
+          message: `Your wallet has been ${amount > 0 ? 'credited with' : 'debited by'} ${Math.abs(amount)}`,
+          transaction: transaction,
+          newBalance: updatedUser.walletBalance || 0
+        });
+      }
       
       res.json({ user: updatedUser, transaction });
     } catch (error) {
@@ -677,6 +688,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.declareMarketResult(marketId, result);
       
       const updatedMarket = await storage.getMarket(marketId);
+      
+      // Send real-time notification to all users about the result declaration
+      broadcastNotification({
+        type: 'market_result',
+        marketId: marketId,
+        result: result,
+        message: `Market result has been declared: ${result}`
+      });
+      
       res.json(updatedMarket);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
@@ -710,6 +730,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.declareOptionGameResult(optionGameId, winningTeam);
       
       const updatedOptionGame = await storage.getOptionGame(optionGameId);
+      
+      // Send real-time notification to all users about the option game result
+      broadcastNotification({
+        type: 'option_game_result',
+        optionGameId: optionGameId,
+        gameTitle: optionGame.title,
+        winningTeam: winningTeam,
+        message: `Result for ${optionGame.title}: Team ${winningTeam} has won!`
+      });
+      
       res.json(updatedOptionGame);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
@@ -856,12 +886,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvedById: (req.user as any).id
       });
       
+      // If transaction is a deposit and was approved, update user's wallet balance
+      if (transaction.type === "deposit" && status === "approved") {
+        const user = await storage.getUser(transaction.userId);
+        if (user) {
+          const updatedUser = await storage.updateUser(transaction.userId, {
+            walletBalance: user.walletBalance + transaction.amount
+          });
+          
+          // Send notification to user
+          sendNotification(transaction.userId, {
+            type: 'transaction_status',
+            transactionId: transactionId,
+            status: status,
+            amount: transaction.amount,
+            newBalance: updatedUser?.walletBalance || 0,
+            message: `Your ${transaction.type} request for ${transaction.amount} has been ${status}`
+          });
+        }
+      } else {
+        // Send notification for rejected deposits or any withdrawal status updates
+        sendNotification(transaction.userId, {
+          type: 'transaction_status',
+          transactionId: transactionId,
+          status: status,
+          message: `Your ${transaction.type} request has been ${status}`
+        });
+      }
+      
       res.json(updatedTransaction);
     } catch (error) {
       res.status(500).json({ message: (error as Error).message });
     }
   });
 
+  // Create HTTP server
   const httpServer = createServer(app);
+  
+  // Set up WebSocket server on a distinct path
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Create a map to store user connections
+  const connections = new Map<number, WebSocket[]>();
+  
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    let userId: number | null = null;
+    
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        
+        // Handle authentication
+        if (data.type === 'auth') {
+          userId = data.userId;
+          console.log(`WebSocket authenticated for user ${userId}`);
+          
+          // Store the connection by user ID
+          if (userId) {
+            if (!connections.has(userId)) {
+              connections.set(userId, []);
+            }
+            connections.get(userId)?.push(ws);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      console.log('WebSocket client disconnected');
+      // Remove connection on disconnect
+      if (userId) {
+        const userConnections = connections.get(userId) || [];
+        const index = userConnections.indexOf(ws);
+        if (index !== -1) {
+          userConnections.splice(index, 1);
+        }
+        if (userConnections.length === 0) {
+          connections.delete(userId);
+        }
+      }
+    });
+  });
+  
+  // Helper function to send notification to a specific user
+  const sendNotification = (userId: number, notification: any) => {
+    const userConnections = connections.get(userId);
+    if (userConnections) {
+      userConnections.forEach(connection => {
+        if (connection.readyState === WebSocket.OPEN) {
+          connection.send(JSON.stringify(notification));
+        }
+      });
+    }
+  };
+  
+  // Helper function to broadcast to all connected users
+  const broadcastNotification = (notification: any) => {
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(notification));
+      }
+    });
+  };
+  
+  // Expose notification functions to be used in routes
+  (app as any).sendNotification = sendNotification;
+  (app as any).broadcastNotification = broadcastNotification;
+  
   return httpServer;
 }

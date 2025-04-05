@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
-import { useQuery } from "@tanstack/react-query";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import NotFound from "@/pages/not-found";
 import AppLayout from "@/components/layout/AppLayout";
 import { UserRole } from "@shared/schema";
+import { WebSocketProvider } from "./context/websocket-context";
+import { useAuth } from "@/lib/auth";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -28,13 +29,8 @@ import PlayerWallet from "@/pages/player/Wallet";
 
 function App() {
   const [location, setLocation] = useLocation();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["/api/auth/me"],
-    retry: false,
-  });
-
-  const isAuthenticated = !isLoading && !isError && data?.user;
-  const userRole = data?.user?.role || null;
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const userRole = user?.role || null;
 
   // Redirect based on authentication status
   useEffect(() => {
@@ -74,16 +70,32 @@ function App() {
     </div>;
   }
 
-  return (
-    <>
-      <Switch>
-        {/* Auth Routes */}
-        <Route path="/login" component={LoginPage} />
-        <Route path="/register" component={RegisterPage} />
+  // Render auth routes if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Switch>
+          <Route path="/login" component={LoginPage} />
+          <Route path="/register" component={RegisterPage} />
+          <Route>
+            {() => {
+              setLocation("/login");
+              return null;
+            }}
+          </Route>
+        </Switch>
+        <Toaster />
+      </>
+    );
+  }
 
+  // Render app routes if authenticated
+  return (
+    <WebSocketProvider>
+      <Switch>
         {/* Admin Routes */}
         <Route path="/admin/dashboard">
-          {isAuthenticated && userRole === UserRole.ADMIN ? (
+          {userRole === UserRole.ADMIN ? (
             <AppLayout>
               <AdminDashboard />
             </AppLayout>
@@ -92,7 +104,7 @@ function App() {
           )}
         </Route>
         <Route path="/admin/market-games">
-          {isAuthenticated && userRole === UserRole.ADMIN ? (
+          {userRole === UserRole.ADMIN ? (
             <AppLayout>
               <AdminMarketGames />
             </AppLayout>
@@ -101,7 +113,7 @@ function App() {
           )}
         </Route>
         <Route path="/admin/option-games">
-          {isAuthenticated && userRole === UserRole.ADMIN ? (
+          {userRole === UserRole.ADMIN ? (
             <AppLayout>
               <AdminOptionGames />
             </AppLayout>
@@ -110,7 +122,7 @@ function App() {
           )}
         </Route>
         <Route path="/admin/users">
-          {isAuthenticated && userRole === UserRole.ADMIN ? (
+          {userRole === UserRole.ADMIN ? (
             <AppLayout>
               <AdminUsers />
             </AppLayout>
@@ -119,7 +131,7 @@ function App() {
           )}
         </Route>
         <Route path="/admin/transactions">
-          {isAuthenticated && userRole === UserRole.ADMIN ? (
+          {userRole === UserRole.ADMIN ? (
             <AppLayout>
               <AdminTransactions />
             </AppLayout>
@@ -130,7 +142,7 @@ function App() {
 
         {/* Subadmin Routes */}
         <Route path="/subadmin/dashboard">
-          {isAuthenticated && userRole === UserRole.SUBADMIN ? (
+          {userRole === UserRole.SUBADMIN ? (
             <AppLayout>
               <SubadminDashboard />
             </AppLayout>
@@ -139,7 +151,7 @@ function App() {
           )}
         </Route>
         <Route path="/subadmin/users">
-          {isAuthenticated && userRole === UserRole.SUBADMIN ? (
+          {userRole === UserRole.SUBADMIN ? (
             <AppLayout>
               <SubadminUsers />
             </AppLayout>
@@ -148,7 +160,7 @@ function App() {
           )}
         </Route>
         <Route path="/subadmin/transactions">
-          {isAuthenticated && userRole === UserRole.SUBADMIN ? (
+          {userRole === UserRole.SUBADMIN ? (
             <AppLayout>
               <SubadminTransactions />
             </AppLayout>
@@ -159,7 +171,7 @@ function App() {
 
         {/* Player Routes */}
         <Route path="/player/dashboard">
-          {isAuthenticated && userRole === UserRole.PLAYER ? (
+          {userRole === UserRole.PLAYER ? (
             <AppLayout>
               <PlayerDashboard />
             </AppLayout>
@@ -168,7 +180,7 @@ function App() {
           )}
         </Route>
         <Route path="/player/market-games">
-          {isAuthenticated && userRole === UserRole.PLAYER ? (
+          {userRole === UserRole.PLAYER ? (
             <AppLayout>
               <PlayerMarketGames />
             </AppLayout>
@@ -177,7 +189,7 @@ function App() {
           )}
         </Route>
         <Route path="/player/option-games">
-          {isAuthenticated && userRole === UserRole.PLAYER ? (
+          {userRole === UserRole.PLAYER ? (
             <AppLayout>
               <PlayerOptionGames />
             </AppLayout>
@@ -186,7 +198,7 @@ function App() {
           )}
         </Route>
         <Route path="/player/wallet">
-          {isAuthenticated && userRole === UserRole.PLAYER ? (
+          {userRole === UserRole.PLAYER ? (
             <AppLayout>
               <PlayerWallet />
             </AppLayout>
@@ -199,7 +211,7 @@ function App() {
         <Route component={NotFound} />
       </Switch>
       <Toaster />
-    </>
+    </WebSocketProvider>
   );
 }
 

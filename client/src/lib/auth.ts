@@ -1,6 +1,7 @@
 import { apiRequest } from "./queryClient";
 import { queryClient } from "./queryClient";
 import { UserRole } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 export type AuthUser = {
   id: number;
@@ -55,4 +56,19 @@ export function formatCurrency(amount: number): string {
     currency: 'INR',
     minimumFractionDigits: 2
   }).format(amount);
+}
+
+export function useAuth() {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
+
+  return {
+    user: data?.user as AuthUser | undefined,
+    isLoading,
+    isError,
+    isAuthenticated: !isLoading && !isError && !!data?.user,
+    refetch
+  };
 }

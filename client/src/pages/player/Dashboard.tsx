@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarketStatus, BetStatus } from "@shared/schema";
-import { formatCurrency } from "@/lib/auth";
+import { formatCurrency, useAuth } from "@/lib/auth";
 import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Bell } from "lucide-react";
+import NotificationsList from "@/components/notifications/NotificationsList";
+import { useWebSocketContext } from "@/context/websocket-context";
 
 import {
   BarChart,
@@ -24,40 +26,39 @@ import {
 } from "recharts";
 
 export default function PlayerDashboard() {
-  // Fetch user data
-  const { data: userData, isLoading: loadingUser } = useQuery({
-    queryKey: ["/api/auth/me"],
-  });
+  // Get user data from auth context
+  const { user, isLoading: authLoading } = useAuth();
+  const { status: wsStatus, notifications } = useWebSocketContext();
   
   // Fetch active markets
-  const { data: markets, isLoading: loadingMarkets } = useQuery({
+  const { data: markets = [], isLoading: loadingMarkets } = useQuery({
     queryKey: ["/api/markets"],
   });
   
   // Fetch active option games
-  const { data: optionGames, isLoading: loadingGames } = useQuery({
+  const { data: optionGames = [], isLoading: loadingGames } = useQuery({
     queryKey: ["/api/option-games"],
   });
   
   // Fetch user bets (using userId from auth)
-  const userId = userData?.user?.id;
-  const { data: marketBets, isLoading: loadingMarketBets } = useQuery({
+  const userId = user?.id;
+  const { data: marketBets = [], isLoading: loadingMarketBets } = useQuery({
     queryKey: [`/api/users/${userId}/market-bets`],
     enabled: !!userId,
   });
   
-  const { data: optionBets, isLoading: loadingOptionBets } = useQuery({
+  const { data: optionBets = [], isLoading: loadingOptionBets } = useQuery({
     queryKey: [`/api/users/${userId}/option-bets`],
     enabled: !!userId,
   });
   
   // Fetch user transactions
-  const { data: transactions, isLoading: loadingTransactions } = useQuery({
+  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
     queryKey: [`/api/users/${userId}/transactions`],
     enabled: !!userId,
   });
   
-  const isLoading = loadingUser || loadingMarkets || loadingGames || 
+  const isLoading = authLoading || loadingMarkets || loadingGames || 
                     loadingMarketBets || loadingOptionBets || loadingTransactions;
   
   if (isLoading) {
@@ -68,19 +69,16 @@ export default function PlayerDashboard() {
     );
   }
   
-  const user = userData?.user;
   const walletBalance = user?.walletBalance || 0;
   
   // Filter active games
-  const activeMarkets = markets?.filter(m => m.status === MarketStatus.OPEN) || [];
-  const activeOptionGames = optionGames?.filter(g => g.status === MarketStatus.OPEN) || [];
+  const activeMarkets = markets.filter(m => m.status === MarketStatus.OPEN);
+  const activeOptionGames = optionGames.filter(g => g.status === MarketStatus.OPEN);
   
   // Calculate betting stats
-  const totalBets = (marketBets?.length || 0) + (optionBets?.length || 0);
-  const wonBets = [
-    ...(marketBets || []),
-    ...(optionBets || [])
-  ].filter(bet => bet.status === BetStatus.WON).length;
+  const totalBets = marketBets.length + optionBets.length;
+  const wonBets = [...marketBets, ...optionBets]
+    .filter(bet => bet.status === BetStatus.WON).length;
   
   const winRate = totalBets > 0 ? (wonBets / totalBets) * 100 : 0;
   
@@ -96,11 +94,11 @@ export default function PlayerDashboard() {
   ];
   
   const gameTypeData = [
-    { name: 'Jodi', value: marketBets?.filter(bet => bet.gameType === 'jodi').length || 0 },
-    { name: 'Hurf', value: marketBets?.filter(bet => bet.gameType === 'hurf').length || 0 },
-    { name: 'Cross', value: marketBets?.filter(bet => bet.gameType === 'cross').length || 0 },
-    { name: 'Odd-Even', value: marketBets?.filter(bet => bet.gameType === 'odd_even').length || 0 },
-    { name: 'Option Games', value: optionBets?.length || 0 }
+    { name: 'Jodi', value: marketBets.filter(bet => bet.gameType === 'jodi').length },
+    { name: 'Hurf', value: marketBets.filter(bet => bet.gameType === 'hurf').length },
+    { name: 'Cross', value: marketBets.filter(bet => bet.gameType === 'cross').length },
+    { name: 'Odd-Even', value: marketBets.filter(bet => bet.gameType === 'odd_even').length },
+    { name: 'Option Games', value: optionBets.length }
   ].filter(item => item.value > 0);
   
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
@@ -111,6 +109,12 @@ export default function PlayerDashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Wallet Balance</CardTitle>
+            <CardDescription className="flex items-center gap-2">
+              WebSocket: <span className={`text-xs font-medium ${
+                wsStatus === 'connected' ? 'text-green-500' : 
+                wsStatus === 'connecting' ? 'text-amber-500' : 'text-red-500'
+              }`}>{wsStatus}</span>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono">{formatCurrency(walletBalance)}</div>
@@ -148,6 +152,10 @@ export default function PlayerDashboard() {
             </Button>
           </CardFooter>
         </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-4">
+        <NotificationsList />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -212,7 +220,7 @@ export default function PlayerDashboard() {
             <CardTitle>Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            {transactions && transactions.length > 0 ? (
+            {transactions.length > 0 ? (
               <ul className="space-y-3">
                 {transactions.slice(0, 7).map(tx => (
                   <li key={tx.id} className="flex items-center justify-between p-2 bg-[#1E1E1E] rounded-md">
@@ -257,7 +265,7 @@ export default function PlayerDashboard() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="day" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [formatCurrency(value), 'Amount']} />
+                  <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), 'Amount']} />
                   <Legend />
                   <Line type="monotone" dataKey="amount" name="Bet Amount" stroke="#f59e0b" strokeWidth={2} />
                   <Line type="monotone" dataKey="winnings" name="Winnings" stroke="#10b981" strokeWidth={2} />
@@ -284,13 +292,13 @@ export default function PlayerDashboard() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
                       {gameTypeData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value} bets`, 'Count']} />
+                    <Tooltip formatter={(value: any) => [`${value} bets`, 'Count']} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
