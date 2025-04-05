@@ -50,21 +50,30 @@ function App() {
     // If authenticated but on login or register page, redirect to appropriate dashboard
     if (isAuthenticated && 
         (location === "/login" || location === "/register" || location === "/")) {
-      switch (userRole) {
-        case UserRole.ADMIN:
-          setLocation("/admin/dashboard");
-          break;
-        case UserRole.SUBADMIN:
-          setLocation("/subadmin/dashboard");
-          break;
-        case UserRole.PLAYER:
-          setLocation("/player/dashboard");
-          break;
-        default:
-          setLocation("/login");
+      console.log("Redirecting authenticated user with role:", userRole);
+      
+      // Force refresh user role from the user object
+      if (user?.role) {
+        switch (user.role) {
+          case UserRole.ADMIN:
+            console.log("Redirecting admin to admin dashboard");
+            setLocation("/admin/dashboard");
+            break;
+          case UserRole.SUBADMIN:
+            console.log("Redirecting subadmin to subadmin dashboard");
+            setLocation("/subadmin/dashboard");
+            break;
+          case UserRole.PLAYER:
+            console.log("Redirecting player to player dashboard");
+            setLocation("/player/dashboard");
+            break;
+          default:
+            console.log("Unknown role, redirecting to login");
+            setLocation("/login");
+        }
       }
     }
-  }, [isAuthenticated, isLoading, location, userRole, setLocation]);
+  }, [isAuthenticated, isLoading, location, userRole, user, setLocation]);
 
   // If still loading, don't render anything yet
   if (isLoading) {

@@ -1,4 +1,4 @@
-import { apiRequest } from "./queryClient";
+import { apiRequest, getQueryFn } from "./queryClient";
 import { queryClient } from "./queryClient";
 import { UserRole } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -58,14 +58,19 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+interface AuthResponse {
+  user: AuthUser;
+}
+
 export function useAuth() {
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery<AuthResponse>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
   });
 
   return {
-    user: data?.user as AuthUser | undefined,
+    user: data?.user,
     isLoading,
     isError,
     isAuthenticated: !isLoading && !isError && !!data?.user,

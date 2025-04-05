@@ -134,14 +134,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.user });
   });
   
-  // Public registration endpoint
+  // Public registration endpoint - only for players
   app.post("/api/auth/register", validateBody(insertUserSchema), async (req, res) => {
     try {
       const userData = req.body;
       
-      // We'll allow any role for testing purposes
-      // In a production environment, you would force the role to be player
-      // userData.role = UserRole.PLAYER;
+      // Force the role to be PLAYER for public registration
+      userData.role = UserRole.PLAYER;
       
       // Check if username already exists
       const existingUser = await storage.getUserByUsername(userData.username);
