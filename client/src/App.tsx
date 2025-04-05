@@ -7,7 +7,7 @@ import NotFound from "@/pages/not-found";
 import AppLayout from "@/components/layout/AppLayout";
 import { UserRole } from "@shared/schema";
 import { WebSocketProvider } from "./context/websocket-context";
-import { useAuth } from "@/lib/auth";
+import { useAuth, getRoleBasedPath } from "@/lib/auth";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
@@ -54,23 +54,12 @@ function App() {
       
       // Force refresh user role from the user object
       if (user?.role) {
-        switch (user.role) {
-          case UserRole.ADMIN:
-            console.log("Redirecting admin to admin dashboard");
-            setLocation("/admin/dashboard");
-            break;
-          case UserRole.SUBADMIN:
-            console.log("Redirecting subadmin to subadmin dashboard");
-            setLocation("/subadmin/dashboard");
-            break;
-          case UserRole.PLAYER:
-            console.log("Redirecting player to player dashboard");
-            setLocation("/player/dashboard");
-            break;
-          default:
-            console.log("Unknown role, redirecting to login");
-            setLocation("/login");
-        }
+        const redirectPath = getRoleBasedPath(user.role);
+        console.log(`Redirecting ${user.role} to ${redirectPath}`);
+        setLocation(redirectPath);
+      } else {
+        console.log("No valid role found, redirecting to login");
+        setLocation("/login");
       }
     }
   }, [isAuthenticated, isLoading, location, userRole, user, setLocation]);

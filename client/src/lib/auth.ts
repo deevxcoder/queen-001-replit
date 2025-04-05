@@ -20,6 +20,9 @@ export async function login(username: string, password: string): Promise<AuthUse
   // Update the auth state
   await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   
+  // Set the user in cache to ensure immediate auth state update
+  queryClient.setQueryData(["/api/auth/me"], { user: data.user });
+  
   return data.user;
 }
 
@@ -27,6 +30,7 @@ export async function logout(): Promise<void> {
   await apiRequest("POST", "/api/auth/logout");
   
   // Clear the auth state
+  queryClient.setQueryData(["/api/auth/me"], null);
   await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   queryClient.clear();
 }
