@@ -6,14 +6,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, PlusCircle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format, add, set } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Market } from "@shared/schema";
+import { Market, GameType } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Create schema for the market form
 const marketFormSchema = z.object({
@@ -27,6 +28,19 @@ const marketFormSchema = z.object({
     required_error: "Closing date is required",
   }),
   closingTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format"),
+  
+  // Game types
+  enableJodi: z.boolean().default(false),
+  jodiOdds: z.number().min(1, "Odds must be at least 1").default(90),
+  
+  enableHurf: z.boolean().default(false),
+  hurfOdds: z.number().min(1, "Odds must be at least 1").default(9),
+  
+  enableCross: z.boolean().default(false),
+  crossOdds: z.number().min(1, "Odds must be at least 1").default(9),
+  
+  enableOddEven: z.boolean().default(false),
+  oddEvenOdds: z.number().min(1, "Odds must be at least 1").default(1.9),
 }).refine(data => {
   const openingDateTime = set(
     data.openingDate,
@@ -50,6 +64,12 @@ const marketFormSchema = z.object({
 }, {
   message: "Closing time must be after opening time",
   path: ["closingTime"]
+}).refine(data => {
+  // At least one game type must be enabled
+  return data.enableJodi || data.enableHurf || data.enableCross || data.enableOddEven;
+}, {
+  message: "At least one game type must be enabled",
+  path: ["enableJodi"]
 });
 
 type MarketFormProps = {
@@ -88,6 +108,16 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
       openingTime: defaultOpeningTime || "09:00",
       closingDate: defaultClosingDate || add(new Date(), { hours: 3 }),
       closingTime: defaultClosingTime || "12:00",
+      
+      // Default game types
+      enableJodi: true,
+      jodiOdds: 90,
+      enableHurf: true,
+      hurfOdds: 9,
+      enableCross: true,
+      crossOdds: 9,
+      enableOddEven: true,
+      oddEvenOdds: 1.9,
     },
   });
   
@@ -122,22 +152,80 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
         status: "upcoming", // Default for new markets
       };
       
+      let createdMarketId: number;
+      
       if (isEditing) {
         await apiRequest("PATCH", `/api/markets/${market.id}`, marketData);
+        createdMarketId = market.id;
         toast({
           title: "Market updated",
           description: "Market has been updated successfully",
         });
       } else {
-        await apiRequest("POST", "/api/markets", marketData);
+        const response = await apiRequest("POST", "/api/markets", marketData);
+        const newMarket = await response.json();
+        createdMarketId = newMarket.id;
         toast({
           title: "Market created",
           description: "New market has been created successfully",
         });
       }
       
+      // Create the game types for this market
+      if (createdMarketId) {
+        // Build an array of game types to create
+        const gameTypesToCreate = [];
+        
+        if (values.enableJodi) {
+          gameTypesToCreate.push({
+            marketId: createdMarketId,
+            gameType: GameType.JODI,
+            odds: values.jodiOdds,
+            isActive: true
+          });
+        }
+        
+        if (values.enableHurf) {
+          gameTypesToCreate.push({
+            marketId: createdMarketId,
+            gameType: GameType.HURF,
+            odds: values.hurfOdds,
+            isActive: true
+          });
+        }
+        
+        if (values.enableCross) {
+          gameTypesToCreate.push({
+            marketId: createdMarketId,
+            gameType: GameType.CROSS,
+            odds: values.crossOdds,
+            isActive: true
+          });
+        }
+        
+        if (values.enableOddEven) {
+          gameTypesToCreate.push({
+            marketId: createdMarketId,
+            gameType: GameType.ODD_EVEN,
+            odds: values.oddEvenOdds,
+            isActive: true
+          });
+        }
+        
+        // Create each game type
+        for (const gameTypeData of gameTypesToCreate) {
+          await apiRequest("POST", "/api/market-game-types", gameTypeData);
+        }
+        
+        toast({
+          title: "Game types created",
+          description: `Created ${gameTypesToCreate.length} game types for this market`,
+        });
+      }
+      
       // Refresh markets data
       queryClient.invalidateQueries({ queryKey: ["/api/markets"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/markets/${createdMarketId}/game-types`] });
       
       // Call success callback
       if (onSuccess) onSuccess();
@@ -292,6 +380,194 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
               </FormItem>
             )}
           />
+        </div>
+        
+        <div className="border rounded-md p-4 mb-4">
+          <h3 className="text-lg font-semibold mb-4">Game Types</h3>
+          <div className="space-y-4">
+            {/* Jodi Game Type */}
+            <div className="border-b pb-4">
+              <div className="flex justify-between items-start mb-2">
+                <FormField
+                  control={form.control}
+                  name="enableJodi"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                      <FormControl>
+                        <Checkbox 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Jodi (Double Digit)</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Bet on specific two-digit combinations
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jodiOdds"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormLabel>Odds</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          value={field.value}
+                          disabled={!form.watch("enableJodi")}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+            
+            {/* Hurf Game Type */}
+            <div className="border-b pb-4">
+              <div className="flex justify-between items-start mb-2">
+                <FormField
+                  control={form.control}
+                  name="enableHurf"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                      <FormControl>
+                        <Checkbox 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Hurf (Position-based)</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Bet on specific positions in a number
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hurfOdds"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormLabel>Odds</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={0.1}
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          value={field.value}
+                          disabled={!form.watch("enableHurf")}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+            
+            {/* Cross Game Type */}
+            <div className="border-b pb-4">
+              <div className="flex justify-between items-start mb-2">
+                <FormField
+                  control={form.control}
+                  name="enableCross"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                      <FormControl>
+                        <Checkbox 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Cross (Multi-position)</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Bet on numbers that may appear in multiple positions
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="crossOdds"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormLabel>Odds</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={0.1}
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          value={field.value}
+                          disabled={!form.watch("enableCross")}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+            
+            {/* Odd-Even Game Type */}
+            <div>
+              <div className="flex justify-between items-start mb-2">
+                <FormField
+                  control={form.control}
+                  name="enableOddEven"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                      <FormControl>
+                        <Checkbox 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Odd-Even</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          Bet on whether the result will be odd or even
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="oddEvenOdds"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormLabel>Odds</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          step={0.1}
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          value={field.value}
+                          disabled={!form.watch("enableOddEven")}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
         </div>
         
         <div className="flex justify-end gap-2">

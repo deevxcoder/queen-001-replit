@@ -391,6 +391,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: (error as Error).message });
     }
   });
+  
+  app.get("/api/markets/:marketId/bets", isAdminOrSubadmin, async (req, res) => {
+    try {
+      const marketId = parseInt(req.params.marketId);
+      const bets = await storage.getMarketBetsByMarket(marketId);
+      res.json(bets);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
 
   app.patch("/api/market-game-types/:id", isAdmin, async (req, res) => {
     try {
@@ -692,10 +702,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/markets/:id/declare-result", isAdmin, async (req, res) => {
     try {
       const marketId = parseInt(req.params.id);
-      const { result } = req.body;
+      const { resultValue } = req.body;
       
-      if (!result) {
-        return res.status(400).json({ message: "Result is required" });
+      if (!resultValue) {
+        return res.status(400).json({ message: "Result value is required" });
       }
       
       const market = await storage.getMarket(marketId);
@@ -713,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Result already declared for this market" });
       }
       
-      await storage.declareMarketResult(marketId, result);
+      await storage.declareMarketResult(marketId, resultValue);
       
       const updatedMarket = await storage.getMarket(marketId);
       
@@ -721,8 +731,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcastNotification({
         type: 'market_result',
         marketId: marketId,
-        result: result,
-        message: `Market result has been declared: ${result}`
+        result: resultValue,
+        message: `Market result has been declared: ${resultValue}`
       });
       
       res.json(updatedMarket);

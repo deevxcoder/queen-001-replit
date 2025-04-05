@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Calendar, Edit, X } from "lucide-react";
+import { Clock, Calendar, Edit, X, Trophy } from "lucide-react";
 import { Market, MarketStatus } from "@shared/schema";
 import { formatCurrency } from "@/lib/auth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import ResultDeclarationForm from "./ResultDeclarationForm";
+import MarketResultForm from "./MarketResultForm";
 
 interface MarketCardProps {
   market: Market & { gameTypes?: any[] };
@@ -187,17 +187,18 @@ export default function MarketCard({ market, isAdmin = false, onEdit }: MarketCa
             <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
               <DialogTrigger asChild>
                 <Button className="text-white bg-amber hover:bg-amber/90">
+                  <Trophy className="mr-2 h-4 w-4" />
                   Declare Result
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                  <DialogTitle>Declare Result</DialogTitle>
+                  <DialogTitle>Declare Result for {market.name}</DialogTitle>
                   <DialogDescription>
-                    Enter the result for {market.name}
+                    Enter the winning result to process all bets and distribute winnings automatically.
                   </DialogDescription>
                 </DialogHeader>
-                <ResultDeclarationForm 
+                <MarketResultForm 
                   market={market} 
                   onSuccess={() => setShowResultDialog(false)}
                 />
@@ -208,8 +209,15 @@ export default function MarketCard({ market, isAdmin = false, onEdit }: MarketCa
           {market.status === "closed" && market.resultStatus === "declared" && (
             <Button
               className="text-white bg-[#2D2D2D] hover:bg-[#3D3D3D]"
+              onClick={() => {
+                toast({
+                  title: "Result",
+                  description: `The result for ${market.name} is: ${market.resultValue}`,
+                });
+              }}
             >
-              View Results
+              <Trophy className="mr-2 h-4 w-4 text-amber" />
+              View Result: {market.resultValue}
             </Button>
           )}
           
