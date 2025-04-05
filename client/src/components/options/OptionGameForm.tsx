@@ -20,6 +20,7 @@ const optionGameFormSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   teamA: z.string().min(1, "Team A name is required"),
   teamB: z.string().min(1, "Team B name is required"),
+  bannerImage: z.string().optional(),
   odds: z.string().refine(val => {
     const num = parseFloat(val);
     return !isNaN(num) && num > 1;
@@ -90,6 +91,7 @@ export default function OptionGameForm({ optionGame, onSuccess }: OptionGameForm
       title: optionGame?.title || "",
       teamA: optionGame?.teamA || "",
       teamB: optionGame?.teamB || "",
+      bannerImage: optionGame?.bannerImage || "",
       odds: optionGame?.odds.toString() || "1.9",
       openingDate: defaultOpeningDate || new Date(),
       openingTime: defaultOpeningTime || "09:00",
@@ -125,6 +127,7 @@ export default function OptionGameForm({ optionGame, onSuccess }: OptionGameForm
         title: values.title,
         teamA: values.teamA,
         teamB: values.teamB,
+        bannerImage: values.bannerImage,
         odds: parseFloat(values.odds),
         openingTime: openingDateTime.toISOString(),
         closingTime: closingDateTime.toISOString(),
@@ -208,6 +211,20 @@ export default function OptionGameForm({ optionGame, onSuccess }: OptionGameForm
             )}
           />
         </div>
+        
+        <FormField
+          control={form.control}
+          name="bannerImage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Banner Image URL (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/banner.jpg" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         
         <FormField
           control={form.control}

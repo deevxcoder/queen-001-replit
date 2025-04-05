@@ -96,6 +96,15 @@ export default function MarketCard({ market, isAdmin = false, onEdit }: MarketCa
   
   return (
     <Card className="bg-[#1E1E1E] rounded-xl border border-[#2D2D2D] overflow-hidden shadow-lg">
+      {market.bannerImage && (
+        <div className="w-full h-40 overflow-hidden">
+          <img 
+            src={market.bannerImage} 
+            alt={market.name} 
+            className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+          />
+        </div>
+      )}
       <div className="p-4 border-b border-[#2D2D2D]">
         <div className="flex justify-between items-center">
           <h3 className="font-heading font-semibold">{market.name}</h3>

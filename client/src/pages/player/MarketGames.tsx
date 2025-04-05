@@ -113,25 +113,36 @@ export default function PlayerMarketGames() {
                   </Select>
                   
                   {selectedMarket && (
-                    <div className="mt-4 p-4 bg-[#1E1E1E] rounded-lg">
-                      <h3 className="font-semibold mb-2">{selectedMarket.name}</h3>
-                      <div className="text-sm space-y-2">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="h-4 w-4 text-amber" />
-                          <span className="text-muted-foreground">
-                            Closes: {formatTime(selectedMarket?.closingTime)}
-                          </span>
+                    <div className="mt-4 bg-[#1E1E1E] rounded-lg overflow-hidden">
+                      {selectedMarket.bannerImage && (
+                        <div className="w-full h-40 overflow-hidden">
+                          <img 
+                            src={selectedMarket.bannerImage} 
+                            alt={selectedMarket.name} 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <CalendarDays className="h-4 w-4 text-amber" />
-                          <span className="text-muted-foreground">
-                            {formatDate(selectedMarket?.closingTime)}
-                          </span>
-                        </div>
-                        <div className="mt-3">
-                          <span className="text-xs py-1 px-2 bg-green-600 text-white rounded-full">
-                            Open for Betting
-                          </span>
+                      )}
+                      <div className="p-4">
+                        <h3 className="font-semibold mb-2">{selectedMarket.name}</h3>
+                        <div className="text-sm space-y-2">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-4 w-4 text-amber" />
+                            <span className="text-muted-foreground">
+                              Closes: {formatTime(selectedMarket?.closingTime)}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <CalendarDays className="h-4 w-4 text-amber" />
+                            <span className="text-muted-foreground">
+                              {formatDate(selectedMarket?.closingTime)}
+                            </span>
+                          </div>
+                          <div className="mt-3">
+                            <span className="text-xs py-1 px-2 bg-green-600 text-white rounded-full">
+                              Open for Betting
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

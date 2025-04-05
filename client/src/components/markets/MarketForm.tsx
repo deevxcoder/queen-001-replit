@@ -18,6 +18,7 @@ import { Market } from "@shared/schema";
 // Create schema for the market form
 const marketFormSchema = z.object({
   name: z.string().min(3, "Market name must be at least 3 characters"),
+  bannerImage: z.string().optional(),
   openingDate: z.date({
     required_error: "Opening date is required",
   }),
@@ -82,6 +83,7 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
     resolver: zodResolver(marketFormSchema),
     defaultValues: {
       name: market?.name || "",
+      bannerImage: market?.bannerImage || "",
       openingDate: defaultOpeningDate || new Date(),
       openingTime: defaultOpeningTime || "09:00",
       closingDate: defaultClosingDate || add(new Date(), { hours: 3 }),
@@ -114,6 +116,7 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
       
       const marketData = {
         name: values.name,
+        bannerImage: values.bannerImage,
         openingTime: openingDateTime.toISOString(),
         closingTime: closingDateTime.toISOString(),
         status: "upcoming", // Default for new markets
@@ -161,6 +164,20 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
               <FormLabel>Market Name</FormLabel>
               <FormControl>
                 <Input placeholder="e.g. Mumbai Matka" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="bannerImage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Banner Image URL (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/banner.jpg" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

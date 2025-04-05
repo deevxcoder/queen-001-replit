@@ -127,6 +127,18 @@ export default function OptionGameCard({ optionGame, isAdmin = false, onEdit }: 
   
   return (
     <Card className="bg-[#1E1E1E] rounded-xl border border-[#2D2D2D] overflow-hidden shadow-lg">
+      {optionGame.bannerImage && (
+        <div className="w-full h-40 bg-gray-900 overflow-hidden">
+          <img 
+            src={optionGame.bannerImage} 
+            alt={`${optionGame.title} banner`} 
+            className="w-full h-full object-cover object-center"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
       <div className="p-4 border-b border-[#2D2D2D]">
         <div className="flex justify-between items-center">
           <h3 className="font-heading font-semibold">{optionGame.title}</h3>

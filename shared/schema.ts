@@ -78,6 +78,7 @@ export const users = pgTable("users", {
 export const markets = pgTable("markets", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  bannerImage: text("banner_image"),
   status: text("status", { enum: ["upcoming", "open", "closed"] }).notNull().default("upcoming"),
   openingTime: timestamp("opening_time").notNull(),
   closingTime: timestamp("closing_time").notNull(),
@@ -104,6 +105,7 @@ export const optionGames = pgTable("option_games", {
   title: text("title").notNull(),
   teamA: text("team_a").notNull(),
   teamB: text("team_b").notNull(),
+  bannerImage: text("banner_image"),
   status: text("status", { enum: ["upcoming", "open", "closed"] }).notNull().default("upcoming"),
   openingTime: timestamp("opening_time").notNull(),
   closingTime: timestamp("closing_time").notNull(),
