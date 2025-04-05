@@ -46,11 +46,24 @@ export default function TransactionForm({ isDeposit = true, onSuccess }: Transac
     setIsSubmitting(true);
     
     try {
-      const response = await apiRequest("POST", "/api/transactions", values);
+      // Prepare data - ensure all required fields are present
+      const amount = parseFloat(values.amount);
+      const transactionData = {
+        type: values.type,
+        amount: amount,
+        reference: values.reference || "",
+        remarks: values.remarks || "",
+        status: "pending" // Explicitly set the status to ensure it's included
+      };
+      
+      console.log("Submitting transaction:", transactionData);
+      
+      const response = await apiRequest("POST", "/api/transactions", transactionData);
       
       // Refresh transactions
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] }); // To update wallet balance
+      queryClient.invalidateQueries({ queryKey: [`/api/users/${(response as any).userId}/transactions`] });
       
       toast({
         title: isDeposit ? "Deposit requested" : "Withdrawal requested",
@@ -63,6 +76,7 @@ export default function TransactionForm({ isDeposit = true, onSuccess }: Transac
       if (onSuccess) onSuccess();
       
     } catch (error) {
+      console.error("Transaction error:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "An error occurred",

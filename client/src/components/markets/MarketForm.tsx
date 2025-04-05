@@ -146,10 +146,11 @@ export default function MarketForm({ market, onSuccess }: MarketFormProps) {
       
       const marketData = {
         name: values.name,
-        bannerImage: values.bannerImage,
+        bannerImage: values.bannerImage || "", // Ensure empty string if not provided
         openingTime: openingDateTime.toISOString(),
         closingTime: closingDateTime.toISOString(),
         status: "upcoming", // Default for new markets
+        resultStatus: "pending", // Explicitly add resultStatus
       };
       
       let createdMarketId: number;

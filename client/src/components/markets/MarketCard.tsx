@@ -21,7 +21,7 @@ export default function MarketCard({ market, isAdmin = false, onEdit }: MarketCa
   const [showResultDialog, setShowResultDialog] = useState(false);
   const { toast } = useToast();
   
-  const handleStatusChange = async (status: MarketStatus) => {
+  const handleStatusChange = async (status: string) => {
     try {
       await apiRequest("PATCH", `/api/markets/${market.id}`, { status });
       queryClient.invalidateQueries({ queryKey: ["/api/markets"] });
@@ -57,13 +57,13 @@ export default function MarketCard({ market, isAdmin = false, onEdit }: MarketCa
     }
   };
   
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTime = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const today = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
