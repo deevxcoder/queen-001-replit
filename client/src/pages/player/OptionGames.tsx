@@ -31,16 +31,16 @@ export default function PlayerOptionGames() {
   };
   
   // Format time for display
-  const formatTime = (dateString: string | undefined) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
+  const formatTime = (dateInput: string | Date | undefined) => {
+    if (!dateInput) return "";
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
   // Format date for display
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "";
-    const date = new Date(dateString);
+  const formatDate = (dateInput: string | Date | undefined) => {
+    if (!dateInput) return "";
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const today = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
