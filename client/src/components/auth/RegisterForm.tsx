@@ -40,17 +40,14 @@ export default function RegisterForm() {
   async function onSubmit(values: z.infer<typeof registerSchema>) {
     setIsLoading(true);
     try {
-      // Register the user
+      // Register the user using the public endpoint
       const { confirmPassword, ...userData } = values;
-      await apiRequest("POST", "/api/users", userData);
+      await apiRequest("POST", "/api/auth/register", userData);
       
       toast({
         title: "Registration successful",
-        description: "Your account has been created. Please log in.",
+        description: "Your account has been created and you've been logged in automatically.",
       });
-      
-      // Auto login after registration
-      await login(values.username, values.password);
       
       // Redirect will happen automatically through App.tsx effect
     } catch (error) {

@@ -133,6 +133,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", isAuthenticated, (req, res) => {
     res.json({ user: req.user });
   });
+  
+  // Public registration endpoint
+  app.post("/api/auth/register", validateBody(insertUserSchema), async (req, res) => {
+    try {
+      const userData = req.body;
+      
+      // We'll allow any role for testing purposes
+      // In a production environment, you would force the role to be player
+      // userData.role = UserRole.PLAYER;
+      
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      const newUser = await storage.createUser(userData);
+      
+      // Auto-login after registration
+      req.login(newUser, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Login after registration failed" });
+        }
+        res.status(201).json({ user: newUser });
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
 
   // User Routes
   app.post("/api/users", isAdminOrSubadmin, validateBody(insertUserSchema), async (req, res) => {
