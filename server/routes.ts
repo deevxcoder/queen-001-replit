@@ -996,5 +996,382 @@ export async function registerRoutes(app: Express): Promise<Server> {
   (app as any).sendNotification = sendNotification;
   (app as any).broadcastNotification = broadcastNotification;
   
+  // Analytics Routes
+  
+  // Get overall platform statistics (admin only)
+  app.get("/api/analytics/platform", isAdmin, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      // Validate date parameters
+      const from = startDate ? new Date(startDate as string) : new Date(new Date().setDate(new Date().getDate() - 30));
+      const to = endDate ? new Date(endDate as string) : new Date();
+      
+      // Get users count
+      const users = await storage.getUsers();
+      const activeUsers = users.filter(u => u.status === UserStatus.ACTIVE).length;
+      const playerCount = users.filter(u => u.role === UserRole.PLAYER).length;
+      const subadminCount = users.filter(u => u.role === UserRole.SUBADMIN).length;
+      
+      // Get all transactions in the date range
+      const allTransactions = await storage.getTransactions();
+      const periodTransactions = allTransactions.filter(tx => {
+        const txDate = new Date(tx.createdAt);
+        return txDate >= from && txDate <= to;
+      });
+      
+      // Calculate transaction statistics
+      const totalDeposits = periodTransactions
+        .filter(tx => tx.type === "deposit" && tx.status === "approved")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+        
+      const totalWithdrawals = periodTransactions
+        .filter(tx => tx.type === "withdrawal" && tx.status === "approved")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalBets = periodTransactions
+        .filter(tx => tx.type === "bet")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalWinnings = periodTransactions
+        .filter(tx => tx.type === "winning")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Calculate platform profit (bets - winnings)
+      const platformProfit = totalBets - totalWinnings;
+      
+      // Group transactions by date for time series data
+      const dailyData = [];
+      const dateMap = new Map();
+      
+      // Initialize all dates in the range with 0 values
+      let currentDate = new Date(from);
+      while (currentDate <= to) {
+        const dateKey = currentDate.toISOString().split('T')[0];
+        dateMap.set(dateKey, {
+          date: dateKey,
+          deposits: 0,
+          withdrawals: 0,
+          bets: 0,
+          winnings: 0,
+          profit: 0
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Fill in actual data
+      periodTransactions.forEach(tx => {
+        const dateKey = new Date(tx.createdAt).toISOString().split('T')[0];
+        if (!dateMap.has(dateKey)) return;
+        
+        const dayData = dateMap.get(dateKey);
+        
+        if (tx.type === "deposit" && tx.status === "approved") {
+          dayData.deposits += tx.amount;
+        } else if (tx.type === "withdrawal" && tx.status === "approved") {
+          dayData.withdrawals += Math.abs(tx.amount);
+        } else if (tx.type === "bet") {
+          dayData.bets += Math.abs(tx.amount);
+        } else if (tx.type === "winning") {
+          dayData.winnings += tx.amount;
+        }
+        
+        dayData.profit = dayData.bets - dayData.winnings;
+      });
+      
+      // Sort by date
+      dateMap.forEach(value => dailyData.push(value));
+      dailyData.sort((a, b) => a.date.localeCompare(b.date));
+      
+      // Return analytics data
+      res.json({
+        userStats: {
+          totalUsers: users.length,
+          activeUsers,
+          playerCount,
+          subadminCount
+        },
+        financialStats: {
+          totalDeposits,
+          totalWithdrawals,
+          totalBets,
+          totalWinnings,
+          platformProfit
+        },
+        dailyData
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  // Get subadmin analytics (admin and specific subadmin)
+  app.get("/api/analytics/subadmin/:id", isAdminOrSubadmin, async (req, res) => {
+    try {
+      const subadminId = parseInt(req.params.id);
+      const { startDate, endDate } = req.query;
+      
+      // Check permissions - admins can see any subadmin, subadmins can only see themselves
+      if ((req.user as any).role === UserRole.SUBADMIN && (req.user as any).id !== subadminId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get the subadmin
+      const subadmin = await storage.getUser(subadminId);
+      if (!subadmin || subadmin.role !== UserRole.SUBADMIN) {
+        return res.status(404).json({ message: "Subadmin not found" });
+      }
+      
+      // Validate date parameters
+      const from = startDate ? new Date(startDate as string) : new Date(new Date().setDate(new Date().getDate() - 30));
+      const to = endDate ? new Date(endDate as string) : new Date();
+      
+      // Get users managed by this subadmin
+      const users = await storage.getUsersBySubadmin(subadminId);
+      const activeUsers = users.filter(u => u.status === UserStatus.ACTIVE).length;
+      
+      // Get all transactions from these users in the date range
+      const userIds = users.map(u => u.id);
+      const allTransactions = (await Promise.all(userIds.map(userId => storage.getTransactionsByUser(userId)))).flat();
+      
+      const periodTransactions = allTransactions.filter(tx => {
+        const txDate = new Date(tx.createdAt);
+        return txDate >= from && txDate <= to;
+      });
+      
+      // Calculate transaction statistics
+      const totalDeposits = periodTransactions
+        .filter(tx => tx.type === "deposit" && tx.status === "approved")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+        
+      const totalWithdrawals = periodTransactions
+        .filter(tx => tx.type === "withdrawal" && tx.status === "approved")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalBets = periodTransactions
+        .filter(tx => tx.type === "bet")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalWinnings = periodTransactions
+        .filter(tx => tx.type === "winning")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Calculate subadmin profit (typically a portion of platform profit)
+      const platformProfit = totalBets - totalWinnings;
+      const subadminProfit = platformProfit * 0.5; // Assuming 50% commission
+      
+      // Return analytics data
+      res.json({
+        subadmin: {
+          id: subadmin.id,
+          name: subadmin.name,
+          username: subadmin.username
+        },
+        userStats: {
+          totalUsers: users.length,
+          activeUsers
+        },
+        financialStats: {
+          totalDeposits,
+          totalWithdrawals,
+          totalBets,
+          totalWinnings,
+          platformProfit,
+          subadminProfit
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
+  // Get player analytics (player, their subadmin, or admin)
+  app.get("/api/analytics/player/:id", isAuthenticated, async (req, res) => {
+    try {
+      const playerId = parseInt(req.params.id);
+      const { startDate, endDate } = req.query;
+      
+      // Check permissions
+      // Players can only see their own analytics
+      // Subadmins can see their assigned players
+      // Admins can see all players
+      if ((req.user as any).role === UserRole.PLAYER && (req.user as any).id !== playerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get the player
+      const player = await storage.getUser(playerId);
+      if (!player || player.role !== UserRole.PLAYER) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+      
+      // If requesting user is a subadmin, check if player is assigned to them
+      if ((req.user as any).role === UserRole.SUBADMIN && player.subadminId !== (req.user as any).id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Validate date parameters
+      const from = startDate ? new Date(startDate as string) : new Date(new Date().setDate(new Date().getDate() - 30));
+      const to = endDate ? new Date(endDate as string) : new Date();
+      
+      // Get player's transactions in the date range
+      const allTransactions = await storage.getTransactionsByUser(playerId);
+      const periodTransactions = allTransactions.filter(tx => {
+        const txDate = new Date(tx.createdAt);
+        return txDate >= from && txDate <= to;
+      });
+      
+      // Get player's bets
+      const marketBets = await storage.getMarketBetsByUser(playerId);
+      const optionBets = await storage.getOptionBetsByUser(playerId);
+      
+      // Filter bets in the date range
+      const periodMarketBets = marketBets.filter(bet => {
+        const betDate = new Date(bet.createdAt);
+        return betDate >= from && betDate <= to;
+      });
+      
+      const periodOptionBets = optionBets.filter(bet => {
+        const betDate = new Date(bet.createdAt);
+        return betDate >= from && betDate <= to;
+      });
+      
+      // Calculate betting statistics
+      const totalBets = periodMarketBets.length + periodOptionBets.length;
+      const wonBets = [
+        ...periodMarketBets.filter(bet => bet.status === "won"),
+        ...periodOptionBets.filter(bet => bet.status === "won")
+      ].length;
+      
+      const winRate = totalBets > 0 ? (wonBets / totalBets) * 100 : 0;
+      
+      // Calculate financial statistics from transactions
+      const totalDeposited = periodTransactions
+        .filter(tx => tx.type === "deposit" && tx.status === "approved")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+        
+      const totalWithdrawn = periodTransactions
+        .filter(tx => tx.type === "withdrawal" && tx.status === "approved")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalBetAmount = periodTransactions
+        .filter(tx => tx.type === "bet")
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+        
+      const totalWinnings = periodTransactions
+        .filter(tx => tx.type === "winning")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Calculate net profit/loss for the player
+      const netProfit = totalWinnings - totalBetAmount;
+      
+      // Game type distribution
+      const gameTypeDistribution = [
+        { name: 'Jodi', value: periodMarketBets.filter(bet => bet.gameType === 'jodi').length },
+        { name: 'Hurf', value: periodMarketBets.filter(bet => bet.gameType === 'hurf').length },
+        { name: 'Cross', value: periodMarketBets.filter(bet => bet.gameType === 'cross').length },
+        { name: 'Odd-Even', value: periodMarketBets.filter(bet => bet.gameType === 'odd_even').length },
+        { name: 'Option Games', value: periodOptionBets.length }
+      ];
+      
+      // Daily betting data
+      const dailyData = [];
+      const dateMap = new Map();
+      
+      // Initialize all dates in the range with 0 values
+      let currentDate = new Date(from);
+      while (currentDate <= to) {
+        const dateKey = currentDate.toISOString().split('T')[0];
+        dateMap.set(dateKey, {
+          date: dateKey,
+          betAmount: 0,
+          winnings: 0,
+          netProfit: 0,
+          betsPlaced: 0,
+          betsWon: 0
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Fill in market bets data
+      periodMarketBets.forEach(bet => {
+        const dateKey = new Date(bet.createdAt).toISOString().split('T')[0];
+        if (!dateMap.has(dateKey)) return;
+        
+        const dayData = dateMap.get(dateKey);
+        dayData.betAmount += bet.amount;
+        dayData.betsPlaced += 1;
+        
+        if (bet.status === "won") {
+          dayData.betsWon += 1;
+          // Assuming winnings are recorded in transactions, not adding here
+        }
+      });
+      
+      // Fill in option bets data
+      periodOptionBets.forEach(bet => {
+        const dateKey = new Date(bet.createdAt).toISOString().split('T')[0];
+        if (!dateMap.has(dateKey)) return;
+        
+        const dayData = dateMap.get(dateKey);
+        dayData.betAmount += bet.amount;
+        dayData.betsPlaced += 1;
+        
+        if (bet.status === "won") {
+          dayData.betsWon += 1;
+          // Assuming winnings are recorded in transactions, not adding here
+        }
+      });
+      
+      // Fill in transaction data for winnings
+      periodTransactions.forEach(tx => {
+        const dateKey = new Date(tx.createdAt).toISOString().split('T')[0];
+        if (!dateMap.has(dateKey)) return;
+        
+        const dayData = dateMap.get(dateKey);
+        
+        if (tx.type === "winning") {
+          dayData.winnings += tx.amount;
+        }
+        
+        // Calculate daily net profit
+        dayData.netProfit = dayData.winnings - dayData.betAmount;
+      });
+      
+      // Sort by date
+      dateMap.forEach(value => dailyData.push(value));
+      dailyData.sort((a, b) => a.date.localeCompare(b.date));
+      
+      // Return analytics data
+      res.json({
+        player: {
+          id: player.id,
+          name: player.name,
+          username: player.username,
+          walletBalance: player.walletBalance,
+          status: player.status
+        },
+        bettingStats: {
+          totalBets,
+          wonBets,
+          winRate,
+          favoriteGameType: gameTypeDistribution.reduce((prev, current) => 
+            (prev.value > current.value) ? prev : current, { name: 'None', value: 0 }).name
+        },
+        financialStats: {
+          totalDeposited,
+          totalWithdrawn,
+          totalBetAmount,
+          totalWinnings,
+          netProfit
+        },
+        gameTypeDistribution,
+        dailyData
+      });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  });
+  
   return httpServer;
 }

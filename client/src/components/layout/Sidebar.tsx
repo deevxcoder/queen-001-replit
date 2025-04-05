@@ -130,14 +130,12 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
                   isActive={location === `/${userRolePrefix}/transactions`}
                 />
                 
-                {user.role === UserRole.ADMIN && (
-                  <NavItem
-                    href={`/${userRolePrefix}/reports`}
-                    icon={<ChartBarStacked size={20} />}
-                    label="Reports"
-                    isActive={location === `/${userRolePrefix}/reports`}
-                  />
-                )}
+                <NavItem
+                  href={`/${userRolePrefix}/analytics`}
+                  icon={<ChartBarStacked size={20} />}
+                  label="Analytics"
+                  isActive={location.startsWith(`/${userRolePrefix}/analytics`)}
+                />
               </ul>
             </div>
           )}
@@ -151,6 +149,12 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
                   icon={<Wallet size={20} />}
                   label="Wallet"
                   isActive={location === `/${userRolePrefix}/wallet`}
+                />
+                <NavItem
+                  href={`/${userRolePrefix}/analytics`}
+                  icon={<ChartBarStacked size={20} />}
+                  label="Analytics"
+                  isActive={location.startsWith(`/${userRolePrefix}/analytics`)}
                 />
               </ul>
             </div>

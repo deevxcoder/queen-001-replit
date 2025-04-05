@@ -15,17 +15,20 @@ import AdminMarketGames from "@/pages/admin/MarketGames";
 import AdminOptionGames from "@/pages/admin/OptionGames";
 import AdminUsers from "@/pages/admin/Users";
 import AdminTransactions from "@/pages/admin/Transactions";
+import AdminAnalytics from "@/pages/admin/AdminDashboard";
 
 // Subadmin Pages
 import SubadminDashboard from "@/pages/subadmin/Dashboard";
 import SubadminUsers from "@/pages/subadmin/Users";
 import SubadminTransactions from "@/pages/subadmin/Transactions";
+import SubadminAnalytics from "@/pages/subadmin/SubadminDashboard";
 
 // Player Pages
 import PlayerDashboard from "@/pages/player/Dashboard";
 import PlayerMarketGames from "@/pages/player/MarketGames";
 import PlayerOptionGames from "@/pages/player/OptionGames";
 import PlayerWallet from "@/pages/player/Wallet";
+import PlayerAnalytics from "@/pages/player/PlayerAnalytics";
 
 function App() {
   const [location, setLocation] = useLocation();
@@ -139,6 +142,15 @@ function App() {
             <NotFound />
           )}
         </Route>
+        <Route path="/admin/analytics">
+          {userRole === UserRole.ADMIN ? (
+            <AppLayout>
+              <AdminAnalytics />
+            </AppLayout>
+          ) : (
+            <NotFound />
+          )}
+        </Route>
 
         {/* Subadmin Routes */}
         <Route path="/subadmin/dashboard">
@@ -163,6 +175,15 @@ function App() {
           {userRole === UserRole.SUBADMIN ? (
             <AppLayout>
               <SubadminTransactions />
+            </AppLayout>
+          ) : (
+            <NotFound />
+          )}
+        </Route>
+        <Route path="/subadmin/analytics">
+          {userRole === UserRole.SUBADMIN ? (
+            <AppLayout>
+              <SubadminAnalytics />
             </AppLayout>
           ) : (
             <NotFound />
@@ -201,6 +222,15 @@ function App() {
           {userRole === UserRole.PLAYER ? (
             <AppLayout>
               <PlayerWallet />
+            </AppLayout>
+          ) : (
+            <NotFound />
+          )}
+        </Route>
+        <Route path="/player/analytics/:id?">
+          {userRole === UserRole.PLAYER ? (
+            <AppLayout>
+              <PlayerAnalytics />
             </AppLayout>
           ) : (
             <NotFound />
