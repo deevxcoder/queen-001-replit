@@ -6,6 +6,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
+import { hashPassword, comparePasswords } from "./auth-utils";
 import { UserRole, UserStatus, loginSchema, insertUserSchema, insertMarketSchema, insertOptionGameSchema, insertMarketGameTypeSchema, insertMarketBetSchema, insertOptionBetSchema, insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -41,10 +42,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!user) {
           return done(null, false, { message: "Incorrect username." });
         }
-        if (user.password !== password) {
-          // In a real app, you would use a proper password hashing library like bcrypt
+        
+        // Check if the password is hashed (contains $) or still in plain text
+        const isPasswordMatch = user.password.includes('$') 
+          ? await comparePasswords(password, user.password)
+          : user.password === password; // For backward compatibility with existing accounts
+        
+        if (!isPasswordMatch) {
           return done(null, false, { message: "Incorrect password." });
         }
+        
         if (user.status === UserStatus.BLOCKED) {
           return done(null, false, { message: "Account is blocked." });
         }
@@ -148,6 +155,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists" });
       }
       
+      // Hash the password before storing
+      userData.password = await hashPassword(userData.password);
+      
       const newUser = await storage.createUser(userData);
       
       // Auto-login after registration
@@ -172,6 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userData.role = UserRole.PLAYER; // Subadmin can only create players
         userData.subadminId = (req.user as any).id;
       }
+      
+      // Hash the password before storing
+      userData.password = await hashPassword(userData.password);
       
       const newUser = await storage.createUser(userData);
       res.status(201).json(newUser);
@@ -243,6 +256,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!blockedByAdmin?.subadminId && (req.user as any).role !== UserRole.ADMIN) {
           return res.status(403).json({ message: "Only admin can unblock this user" });
         }
+      }
+      
+      // If password is being updated, hash it
+      if (userData.password) {
+        userData.password = await hashPassword(userData.password);
       }
       
       const updatedUser = await storage.updateUser(userId, userData);
