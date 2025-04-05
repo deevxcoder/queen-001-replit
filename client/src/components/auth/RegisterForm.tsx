@@ -63,12 +63,13 @@ export default function RegisterForm() {
       // Update the auth state explicitly
       queryClient.setQueryData(["/api/auth/me"], { user: data.user });
       
-      // Manual redirect after successful registration
+      // Forced redirect after successful registration
       if (data.user && data.user.role) {
         const redirectPath = getRoleBasedPath(data.user.role);
-        setTimeout(() => {
-          setLocation(redirectPath);
-        }, 500); // Small delay to ensure state updates
+        console.log("Redirecting to:", redirectPath);
+        
+        // Force navigation to the correct dashboard
+        window.location.href = redirectPath;
       }
     } catch (error) {
       toast({

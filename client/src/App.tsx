@@ -52,7 +52,7 @@ function App() {
     if (!isAuthenticated && 
         !location.startsWith("/login") && 
         !location.startsWith("/register")) {
-      setLocation("/login");
+      window.location.href = "/login";
       return;
     }
 
@@ -65,10 +65,12 @@ function App() {
       if (user?.role) {
         const redirectPath = getRoleBasedPath(user.role);
         console.log(`Redirecting ${user.role} to ${redirectPath}`);
-        setLocation(redirectPath);
+        
+        // Force navigation to the dashboard using window.location for reliable redirect
+        window.location.href = redirectPath;
       } else {
         console.log("No valid role found, redirecting to login");
-        setLocation("/login");
+        window.location.href = "/login";
       }
     }
   }, [isAuthenticated, isLoading, location, userRole, user, setLocation]);

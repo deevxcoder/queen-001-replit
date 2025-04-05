@@ -42,12 +42,13 @@ export default function LoginForm() {
         description: "You've been logged in successfully.",
       });
       
-      // Manual redirect after successful login
+      // Forced redirect after successful login
       if (user && user.role) {
         const redirectPath = getRoleBasedPath(user.role);
-        setTimeout(() => {
-          setLocation(redirectPath);
-        }, 500); // Small delay to ensure state updates
+        console.log("Redirecting to:", redirectPath);
+        
+        // Force navigation to the correct dashboard
+        window.location.href = redirectPath;
       }
     } catch (error) {
       toast({
