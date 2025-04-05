@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Calendar, Edit, X } from "lucide-react";
-import { OptionGame, MarketStatus } from "@shared/schema";
+import { OptionGame } from "@shared/schema";
 import { formatCurrency } from "@/lib/auth";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,7 +24,7 @@ export default function OptionGameCard({ optionGame, isAdmin = false, onEdit }: 
   const [selectedTeam, setSelectedTeam] = useState<string>("A");
   const { toast } = useToast();
   
-  const handleStatusChange = async (status: MarketStatus) => {
+  const handleStatusChange = async (status: "upcoming" | "open" | "closed") => {
     try {
       await apiRequest("PATCH", `/api/option-games/${optionGame.id}`, { status });
       queryClient.invalidateQueries({ queryKey: ["/api/option-games"] });
@@ -86,13 +86,13 @@ export default function OptionGameCard({ optionGame, isAdmin = false, onEdit }: 
     }
   };
   
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatTime = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
   
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateInput: string | Date) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const today = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(today.getDate() + 1);
@@ -106,7 +106,7 @@ export default function OptionGameCard({ optionGame, isAdmin = false, onEdit }: 
     }
   };
   
-  const getStatusColor = (status: MarketStatus) => {
+  const getStatusColor = (status: "upcoming" | "open" | "closed") => {
     switch (status) {
       case "open":
         return "bg-green-500 text-white";
@@ -142,7 +142,7 @@ export default function OptionGameCard({ optionGame, isAdmin = false, onEdit }: 
       <div className="p-4 border-b border-[#2D2D2D]">
         <div className="flex justify-between items-center">
           <h3 className="font-heading font-semibold">{optionGame.title}</h3>
-          <Badge className={getStatusColor(optionGame.status as MarketStatus)}>
+          <Badge className={getStatusColor(optionGame.status as "upcoming" | "open" | "closed")}>
             {optionGame.status.charAt(0).toUpperCase() + optionGame.status.slice(1)}
           </Badge>
         </div>
