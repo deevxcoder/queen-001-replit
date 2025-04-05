@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,9 +7,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { login } from "@/lib/auth";
+import { login, useAuth, getRoleBasedPath } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 // Extend the user schema for registration
 const registerSchema = z.object({
@@ -23,9 +24,18 @@ const registerSchema = z.object({
 });
 
 export default function RegisterForm() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+
+  // Check if already authenticated and redirect
+  useEffect(() => {
+    if (isAuthenticated && user?.role) {
+      const redirectPath = getRoleBasedPath(user.role);
+      setLocation(redirectPath);
+    }
+  }, [isAuthenticated, user, setLocation]);
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
@@ -42,14 +52,24 @@ export default function RegisterForm() {
     try {
       // Register the user using the public endpoint
       const { confirmPassword, ...userData } = values;
-      await apiRequest("POST", "/api/auth/register", userData);
+      const response = await apiRequest("POST", "/api/auth/register", userData);
+      const data = await response.json();
       
       toast({
         title: "Registration successful",
         description: "Your account has been created and you've been logged in automatically.",
       });
       
-      // Redirect will happen automatically through App.tsx effect
+      // Update the auth state explicitly
+      queryClient.setQueryData(["/api/auth/me"], { user: data.user });
+      
+      // Manual redirect after successful registration
+      if (data.user && data.user.role) {
+        const redirectPath = getRoleBasedPath(data.user.role);
+        setTimeout(() => {
+          setLocation(redirectPath);
+        }, 500); // Small delay to ensure state updates
+      }
     } catch (error) {
       toast({
         title: "Registration failed",
@@ -138,9 +158,12 @@ export default function RegisterForm() {
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-center text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login">
-              <a className="text-amber hover:underline">Sign in</a>
-            </Link>
+            <span 
+              className="text-amber hover:underline cursor-pointer"
+              onClick={() => setLocation("/login")}
+            >
+              Sign in
+            </span>
           </div>
         </CardFooter>
       </Card>

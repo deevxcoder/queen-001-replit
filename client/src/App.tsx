@@ -9,6 +9,15 @@ import { UserRole } from "@shared/schema";
 import { WebSocketProvider } from "./context/websocket-context";
 import { useAuth, getRoleBasedPath } from "@/lib/auth";
 
+// Component to handle redirecting from 404 routes
+function NotFoundRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/login");
+  }, [setLocation]);
+  return <div className="min-h-screen bg-background"></div>;
+}
+
 // Admin Pages
 import AdminDashboard from "@/pages/admin/Dashboard";
 import AdminMarketGames from "@/pages/admin/MarketGames";
@@ -79,10 +88,7 @@ function App() {
           <Route path="/login" component={LoginPage} />
           <Route path="/register" component={RegisterPage} />
           <Route>
-            {() => {
-              setLocation("/login");
-              return null;
-            }}
+            <NotFoundRedirect />
           </Route>
         </Switch>
         <Toaster />

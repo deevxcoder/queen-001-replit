@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,14 +7,23 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { login } from "@/lib/auth";
+import { login, useAuth, getRoleBasedPath } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { loginSchema } from "@shared/schema";
 
 export default function LoginForm() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+
+  // Check if already authenticated and redirect
+  useEffect(() => {
+    if (isAuthenticated && user?.role) {
+      const redirectPath = getRoleBasedPath(user.role);
+      setLocation(redirectPath);
+    }
+  }, [isAuthenticated, user, setLocation]);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -27,12 +36,19 @@ export default function LoginForm() {
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsLoading(true);
     try {
-      await login(values.username, values.password);
+      const user = await login(values.username, values.password);
       toast({
         title: "Login successful",
         description: "You've been logged in successfully.",
       });
-      // Redirect will happen automatically through App.tsx effect
+      
+      // Manual redirect after successful login
+      if (user && user.role) {
+        const redirectPath = getRoleBasedPath(user.role);
+        setTimeout(() => {
+          setLocation(redirectPath);
+        }, 500); // Small delay to ensure state updates
+      }
     } catch (error) {
       toast({
         title: "Login failed",
@@ -95,9 +111,12 @@ export default function LoginForm() {
         <CardFooter className="flex flex-col space-y-2">
           <div className="text-sm text-center text-muted-foreground">
             Don't have an account?{" "}
-            <Link href="/register">
-              <a className="text-amber hover:underline">Sign up</a>
-            </Link>
+            <span 
+              className="text-amber hover:underline cursor-pointer"
+              onClick={() => setLocation("/register")}
+            >
+              Sign up
+            </span>
           </div>
         </CardFooter>
       </Card>

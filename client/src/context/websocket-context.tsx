@@ -23,7 +23,7 @@ interface WebSocketContextType {
   clearNotifications: () => void;
 }
 
-// Create context
+// Create context with default values
 const WebSocketContext = createContext<WebSocketContextType>({
   status: 'disconnected',
   notifications: [],
@@ -35,7 +35,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   // Function to clear all notifications
   const clearNotifications = () => {
@@ -57,7 +57,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
   // Initialize and manage WebSocket connection
   useEffect(() => {
     // Don't connect WebSocket if user is not logged in
-    if (!user) {
+    if (!isAuthenticated || !user) {
       setStatus('disconnected');
       return;
     }
@@ -113,7 +113,7 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({ children 
         newSocket.close();
       }
     };
-  }, [user]); // Reconnect if user changes
+  }, [isAuthenticated, user]); // Reconnect if user or auth state changes
 
   // Send ping every 30 seconds to keep connection alive
   useEffect(() => {
